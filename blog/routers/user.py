@@ -2,57 +2,34 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from ..schemas import ShowUser, User
 from .. import models
 from blog.database import get_db
-from ..schemas import Blog, ShowBlog
+from ..hashing import Hash
 
 router = APIRouter(
-    # prefix="/items",
-    tags=["blog"],
+    prefix="/user",
+    tags=["user"],
     # dependencies=[Depends(get_token_header)],
     # responses={404: {"description": "Not found"}},
 )
 
-# get all
-# here i use status code for response currect status code 
-@router.get("/get", response_model=List[ShowBlog])
-async def get(db:Session = Depends(get_db)):
-    allBlogData = db.query(models.Blog).all()
-    if not allBlogData: 
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Data not available")
-    return allBlogData
+# db:Session = Depends(get_db) is a db connection
 
-# get 
-@router.get("/get/{id}", status_code=200, response_model=ShowBlog)
-async def get(id:int, db:Session = Depends(get_db) ):
-    singleBlog = db.query(models.Blog).filter(models.Blog.id ==id ).first()
-    
-    if not singleBlog:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"blog not found")
-        # response.status_code= status.HTTP_404_NOT_FOUND
-        # return {"details": "blog not found"}
-    return singleBlog
 
-# create / save blog
-@router.post("/create",status_code=status.HTTP_201_CREATED)
-async def create(request: Blog, db: Session = Depends(get_db)):
-    newBlog = models.Blog(name=request.name, desc= request.desc, user_id = 1)
-    db.add(newBlog)
+@router.post("/create", status_code=status.HTTP_201_CREATED, response_model=ShowUser)
+async def create(request: User, db: Session = Depends(get_db)):
+    newUser = models.User(name=request.name, email= request.email, password = Hash.bcrypt(request.password))
+    db.add(newUser)
     db.commit()
-    db.refresh(newBlog)
-    return newBlog
+    db.refresh(newUser)
+    return newUser
 
-# delete 
-@router.delete("/delete/{id}", status_code=status.HTTP_200_OK)
-async def delete(id: int, db:Session = Depends(get_db) ):
-    blog  = db.query(models.Blog).filter(models.Blog.id == id)
-    if not blog.first():  # Check if the record exists
-        raise HTTPException(status_code=404, detail="Blog not found")
+@router.get("/get/{id}", response_model=ShowUser)
+async def get(id: int, db:Session = Depends(get_db)):
+        singleUser = db.query(models.User).filter(models.User.id ==id ).first()
 
-    blog.delete(synchronize_session=False)
-    db.commit()
-    return {"message": f"Blog with id {id} deleted successfully"}
+        if not singleUser:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"User not found")
 
-
-
-
+        return singleUser
